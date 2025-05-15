@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>سایت رسمی مدرسه شهید مطهری (شیفت ۱)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: Vazirmatn, sans-serif; background-color: #E6F0FF; }
+    #notification {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #2C7BE5;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgb(44 123 229 / 0.4);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+      z-index: 1000;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body class="p-4">
+
+  <h1 class="text-3xl font-bold text-blue-700 mb-8 text-center">سایت رسمی مدرسه شهید مطهری (شیفت ۱)</h1>
+  <p class="text-center mb-6 text-gray-700">سازنده: ابوالفضل زارعی دودجی</p>
+
+  <!-- نوتیفیکیشن -->
+  <div id="notification"></div>
+
+  <!-- فرم آپلود فایل آموزشی -->
+  <section class="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-xl font-semibold text-blue-600 mb-4">آپلود فایل آموزشی</h2>
+    <form id="uploadForm" class="space-y-4" autocomplete="off">
+      <label class="block font-semibold text-gray-700">عنوان فایل:</label>
+      <input type="text" id="fileTitle" required placeholder="مثلا: فیلم آموزش ریاضی فصل ۳" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      
+      <label class="block font-semibold text-gray-700">پایه:</label>
+      <select id="gradeSelect" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <option value="7">هفتم</option>
+        <option value="8">هشتم</option>
+        <option value="9">نهم</option>
+      </select>
+
+      <label class="block font-semibold text-gray-700">درس:</label>
+      <select id="subjectSelect" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"></select>
+
+      <label class="block font-semibold text-gray-700">نوع فایل:</label>
+      <select id="fileType" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <option value="video">فیلم آموزشی</option>
+        <option value="exam">نمونه سوال</option>
+        <option value="other">سایر</option>
+      </select>
+
+      <label class="block font-semibold text-gray-700">انتخاب فایل (ویدیو یا PDF):</label>
+      <input type="file" id="fileInput" accept="video/*,.pdf" required class="w-full" />
+
+      <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-700 transition">آپلود</button>
+    </form>
+  </section>
+
+  <!-- نمایش فایل‌های آپلود شده -->
+  <section class="max-w-lg mx-auto mt-10 bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-xl font-semibold text-blue-600 mb-4">فایل‌های آپلود شده</h2>
+    <ul id="fileList" class="space-y-4"></ul>
+  </section>
+
+<script>
+  // درس‌ها برای هر پایه
+  const subjectsByGrade = {
+    7: ['ریاضی', 'علوم', 'فارسی', 'مطالعات', 'زبان', 'تفکر', 'پیام آسمانی', 'عربی', 'نگارش'],
+    8: ['ریاضی', 'علوم', 'فارسی', 'مطالعات', 'زبان', 'تفکر', 'پیام آسمانی', 'عربی', 'نگارش'],
+    9: ['ریاضی', 'علوم', 'فارسی', 'مطالعات', 'زبان', 'دفاعی', 'پیام آسمانی', 'عربی', 'نگارش']
+  };
+
+  // پر کردن دروس بر اساس پایه انتخاب شده
+  const gradeSelect = document.getElementById('gradeSelect');
+  const subjectSelect = document.getElementById('subjectSelect');
+
+  function updateSubjects() {
+    const grade = gradeSelect.value;
+    subjectSelect.innerHTML = '';
+    subjectsByGrade[grade].forEach(sub => {
+      const option = document.createElement('option');
+      option.value = sub;
+      option.textContent = sub;
+      subjectSelect.appendChild(option);
+    });
+  }
+  gradeSelect.addEventListener('change', updateSubjects);
+  updateSubjects();
+
+  // بخش نمایش نوتیفیکیشن
+  const notification = document.getElementById('notification');
+  function showNotification(message) {
+    notification.textContent = message;
+    notification.style.opacity = '1';
+    notification.style.pointerEvents = 'auto';
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      notification.style.pointerEvents = 'none';
+    }, 5000);
+  }
+
+  // مدیریت فایل‌ها با localStorage
+  let files = JSON.parse(localStorage.getItem('uploadedFiles') || '[]');
+
+  const uploadForm = document.getElementById('uploadForm');
+  const fileList = document.getElementById('fileList');
+
+  function renderFiles() {
+    fileList.innerHTML = '';
+    if (files.length === 0) {
+      fileList.innerHTML = '<p class="text-gray-600">هیچ فایلی آپلود نشده است.</p>';
+      return;
+    }
+    files.forEach((f, i) => {
+      const li = document.createElement('li');
+      li.className = "bg-blue-50 p-4 rounded shadow space-y-2";
+
+      let content = `<strong>${f.title}</strong> - <span class="text-sm text-blue-700">${f.grade} - ${f.subject} - ${f.type === 'video' ? 'فیلم آموزشی' : (f.type === 'exam' ? 'نمونه سوال' : 'سایر')}</span>`;
+
+      if (f.fileData.startsWith('data:video')) {
+        content += `<video controls class="w-full max-h-40 rounded mt-2" src="${f.fileData}"></video>`;
+      } else if (f.fileData.startsWith('data:application/pdf')) {
+        content += `<a href="${f.fileData}" download="${f.title}.pdf" class="text-blue-600 underline">دانلود PDF</a>`;
+      } else {
+        content += `<a href="${f.fileData}" download="${f.title}" class="text-blue-600 underline">دانلود فایل</a>`;
+      }
+
+      li.innerHTML = content;
+      fileList.appendChild(li);
+    });
+  }
+
+  renderFiles();
+
+  uploadForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const title = document.getElementById('fileTitle').value.trim();
+    const grade = gradeSelect.value;
+    const subject = subjectSelect.value;
+    const type = document.getElementById('fileType').value;
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+    if (!file) {
+      alert('لطفا فایل انتخاب کنید.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (event) {
+      files.push({
+        title: title,
+        grade: grade,
+        subject: subject,
+        type: type,
+        fileData: event.target.result
+      });
+      localStorage.setItem('uploadedFiles', JSON.stringify(files));
+      renderFiles();
+      uploadForm.reset();
+      updateSubjects();
+      showNotification('فایل با موفقیت آپلود شد!');
+    };
+    reader.readAsDataURL(file);
+  });
+</script>
+
+</body>
+</html>
